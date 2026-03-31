@@ -14,6 +14,7 @@ class Cow(models.Model):
         ('Heifer', 'Heifer'),
         ('Nandi', 'Nandi'),
     ]
+    
 
     caller_of_rescue = models.CharField(max_length=100)
     caller_of_rescue_number = models.CharField(max_length=20, blank=True, null=True)
@@ -29,6 +30,7 @@ class Cow(models.Model):
     mode_of_transport = models.CharField(max_length=100, blank=True, null=True)
     colour         = models.CharField(max_length=100, blank=True, null=True)
     other_details  = models.TextField(blank=True, null=True)
+
     
     CONDITION_CHOICES = [
         ('Normal', 'Normal'),
@@ -45,3 +47,22 @@ class Cow(models.Model):
 
     class Meta:
         ordering = ['-admission_date', '-created_at']
+
+class CowBaseStats(models.Model):
+    total = models.IntegerField(default=296)
+    cows = models.IntegerField(default=0)
+    bulls = models.IntegerField(default=0)
+    female_calves = models.IntegerField(default=33)
+    male_calves = models.IntegerField(default=95)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    class Meta:
+        verbose_name_plural = "Cow Base Stats"
