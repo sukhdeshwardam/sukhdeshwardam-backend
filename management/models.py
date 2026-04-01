@@ -1,10 +1,11 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 class Visitor(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=20, unique=True)
+    phone = models.CharField(max_length=20)
     dob = models.DateField(blank=True, null=True)
     address = models.TextField()
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='visitors')
@@ -16,7 +17,7 @@ class Visitor(models.Model):
 class Donor(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=20, unique=True)
+    phone = models.CharField(max_length=20)
     dob = models.DateField(blank=True, null=True)
     address = models.TextField(default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -34,6 +35,7 @@ class Donation(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     material_details = models.TextField(blank=True, null=True)
     material_quantity = models.CharField(max_length=255, blank=True, null=True)
+    donation_date = models.DateField(default=timezone.now)
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='donations_logged')
     created_at = models.DateTimeField(auto_now_add=True)
 

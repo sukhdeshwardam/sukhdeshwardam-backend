@@ -20,20 +20,8 @@ class VisitorViewSet(viewsets.ModelViewSet):
             'address': request.data.get('address', ''),
         }
         
-        # Get or create visitor by phone
-        visitor, created = Visitor.objects.get_or_create(phone=phone, defaults=visitor_data)
-        
-        # Update info if already exists but new info provided
-        if not created:
-            for key, value in visitor_data.items():
-                if value:
-                    setattr(visitor, key, value)
-            visitor.save()
-
-        # If it was created, we also need to set added_by which wasn't in defaults or defaults might not handle it well with ForeignKey
-        if created:
-            visitor.added_by = self.request.user
-            visitor.save()
+        # Always create a new visitor record (no merging)
+        visitor = Visitor.objects.create(phone=phone, added_by=self.request.user, **visitor_data)
             
         # Log an initial visit if visit_date is provided
         visit_date = request.data.get('visit_date')
@@ -48,7 +36,7 @@ class VisitorViewSet(viewsets.ModelViewSet):
             )
             
         serializer = self.get_serializer(visitor)
-        return response.Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return response.Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         # This is now handled by our custom create method
@@ -75,46 +63,9 @@ class DonationViewSet(viewsets.ModelViewSet):
             'address': request.data.get('address'),
         }
         
-        # Find or create donor by phone
-        phone = donor_data.get('phone')
-        donor, created = Donor.objects.get_or_create(phone=phone, defaults=donor_data)
-        
-        # If donor existed, update their profile just in case info changed
-        if not created:
-            for key, value in donor_data.items():
-                if value:
-                    setattr(donor, key, value)
-            donor.save()
+        # Always create a new donor record (no merging)
+        donor = Donor.objects.create(**donor_data)
 
-        # Handle visitor status
-        is_visitor = request.data.get('is_visitor', False)
-        if is_visitor:
-            from django.utils import timezone
-            # Sync visitor data
-            visitor_data = {
-                'name': donor_data['name'],
-                'email': donor_data['email'] or '',
-                'dob': donor_data['dob'],
-                'address': donor_data['address'] or '',
-            }
-            visitor, v_created = Visitor.objects.get_or_create(phone=phone, defaults=visitor_data)
-            if not v_created:
-                for key, value in visitor_data.items():
-                    if value:
-                        setattr(visitor, key, value)
-                visitor.save()
-            
-            if v_created:
-                visitor.added_by = self.request.user
-                visitor.save()
-
-            # Log a visit
-            Visit.objects.create(
-                visitor=visitor,
-                visit_date=timezone.now().date(),
-                notes=f"Auto-logged visit from donation: {request.data.get('donation_type')}"
-            )
-            
         # Log the donation
         donation_data = request.data.copy()
         donation_data['donor'] = donor.id

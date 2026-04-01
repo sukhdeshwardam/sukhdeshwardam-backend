@@ -28,7 +28,9 @@ class CowFoodStock(models.Model):
     food_name    = models.CharField(max_length=150, help_text="Name of food/fodder (e.g., Hay, Silage, Wheat Bran)")
     quantity_kg  = models.DecimalField(max_digits=10, decimal_places=2, help_text="Quantity in kilograms")
     supplier     = models.CharField(max_length=150, blank=True, help_text="Supplier or vendor name")
+    bill_number  = models.CharField(max_length=100, blank=True, null=True)
     price_per_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     purchase_date = models.DateField(help_text="Date of stock purchase")
     notes        = models.TextField(blank=True)
 

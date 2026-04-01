@@ -48,5 +48,5 @@ class DonorSerializer(serializers.ModelSerializer):
         return ", ".join(unique_mats[:2]) + ("..." if len(unique_mats) > 2 else "")
 
     def get_last_donation_date(self, obj):
-        last = obj.donations.order_by('-created_at').first()
-        return last.created_at if last else None
+        last = obj.donations.order_by('-donation_date').first()
+        return last.donation_date if last else None
