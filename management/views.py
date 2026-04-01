@@ -85,6 +85,35 @@ class DonationViewSet(viewsets.ModelViewSet):
                 if value:
                     setattr(donor, key, value)
             donor.save()
+
+        # Handle visitor status
+        is_visitor = request.data.get('is_visitor', False)
+        if is_visitor:
+            from django.utils import timezone
+            # Sync visitor data
+            visitor_data = {
+                'name': donor_data['name'],
+                'email': donor_data['email'] or '',
+                'dob': donor_data['dob'],
+                'address': donor_data['address'] or '',
+            }
+            visitor, v_created = Visitor.objects.get_or_create(phone=phone, defaults=visitor_data)
+            if not v_created:
+                for key, value in visitor_data.items():
+                    if value:
+                        setattr(visitor, key, value)
+                visitor.save()
+            
+            if v_created:
+                visitor.added_by = self.request.user
+                visitor.save()
+
+            # Log a visit
+            Visit.objects.create(
+                visitor=visitor,
+                visit_date=timezone.now().date(),
+                notes=f"Auto-logged visit from donation: {request.data.get('donation_type')}"
+            )
             
         # Log the donation
         donation_data = request.data.copy()

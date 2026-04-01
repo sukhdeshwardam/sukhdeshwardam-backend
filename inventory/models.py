@@ -3,7 +3,7 @@ from django.utils import timezone
 
 class Medicine(models.Model):
     medicine_name = models.CharField(max_length=150, default="Unknown Medicine")
-    number = models.CharField(max_length=50, help_text="Medicine ID or Batch Number")
+    number = models.CharField(max_length=50, blank=True, default="", help_text="Medicine ID or Batch Number")
     stock = models.PositiveIntegerField(default=0, help_text="Current stock quantity")
     expiry_date = models.DateField(blank=True, null=True, help_text="Expiry date of the medicine")
     store_phone_number = models.CharField(max_length=100, blank=True, null=True, help_text="Phone number of the store")

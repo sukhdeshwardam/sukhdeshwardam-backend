@@ -11,9 +11,18 @@ class MedicineUsageSerializer(serializers.ModelSerializer):
 
 class MedicineSerializer(serializers.ModelSerializer):
     usages = MedicineUsageSerializer(many=True, read_only=True)
+
+    def to_internal_value(self, data):
+        # Convert empty expiry_date string to None before DateField validation
+        if isinstance(data, dict) and data.get('expiry_date') == '':
+            data = data.copy()
+            data['expiry_date'] = None
+        return super().to_internal_value(data)
+
     class Meta:
         model = Medicine
         fields = '__all__'
+
 
 class CowFoodStockSerializer(serializers.ModelSerializer):
     class Meta:
