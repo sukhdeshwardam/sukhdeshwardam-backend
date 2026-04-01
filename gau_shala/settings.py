@@ -170,6 +170,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "https://sukhdeshwargaudham.vercel.app",
+    "https://www.shreejalaramgstg.org"
 ]
 # If you need to allow all origins during development:
 # CORS_ALLOW_ALL_ORIGINS = True
