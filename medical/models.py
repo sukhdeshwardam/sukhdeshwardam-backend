@@ -2,11 +2,22 @@ from django.db import models
 from django.conf import settings
 from cattle.models import Cow
 
+class Symptom(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class Disease(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class Treatment(models.Model):
     STATUS_CHOICES = [
         ('Ongoing', 'Ongoing'),
         ('Recovered', 'Recovered'),
-        ('Death', 'Death'),
     ]
 
     cow = models.ForeignKey(Cow, on_delete=models.CASCADE, related_name='treatments')

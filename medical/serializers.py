@@ -1,7 +1,16 @@
 from rest_framework import serializers
-from .models import Treatment
+from .models import Treatment, Symptom, Disease
 from cattle.models import Cow
 
+class SymptomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Symptom
+        fields = '__all__'
+
+class DiseaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Disease
+        fields = '__all__'
 
 class TreatmentSerializer(serializers.ModelSerializer):
     # --- read-only denormalised fields ---

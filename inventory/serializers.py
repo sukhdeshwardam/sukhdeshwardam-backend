@@ -4,6 +4,8 @@ from .models import Medicine, CowFoodStock, MedicineUsage
 class MedicineUsageSerializer(serializers.ModelSerializer):
     medicine_name = serializers.ReadOnlyField(source='medicine.medicine_name')
     batch_number = serializers.ReadOnlyField(source='medicine.number')
+    medicine_type = serializers.ReadOnlyField(source='medicine.medicine_type')
+    medicine_unit = serializers.ReadOnlyField(source='medicine.medicine_unit')
 
     class Meta:
         model = MedicineUsage
