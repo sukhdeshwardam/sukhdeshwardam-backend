@@ -1,5 +1,10 @@
 from rest_framework import serializers
-from .models import Medicine, CowFoodStock, MedicineUsage
+from .models import Medicine, CowFoodStock, MedicineUsage, MedicalStore
+
+class MedicalStoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalStore
+        fields = '__all__'
 
 class MedicineUsageSerializer(serializers.ModelSerializer):
     medicine_name = serializers.ReadOnlyField(source='medicine.medicine_name')

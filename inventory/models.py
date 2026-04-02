@@ -1,6 +1,18 @@
 from django.db import models
 from django.utils import timezone
 
+class MedicalStore(models.Model):
+    name = models.CharField(max_length=255)
+    contact_no = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = "Medical Stores"
+
 class Medicine(models.Model):
     MEDICINE_TYPE_CHOICES = [
         ('Bottle', 'Bottle'),

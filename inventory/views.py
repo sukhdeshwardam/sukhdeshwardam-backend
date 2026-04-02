@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
-from .models import Medicine, CowFoodStock, MedicineUsage
-from .serializers import MedicineSerializer, CowFoodStockSerializer, MedicineUsageSerializer
+from .models import Medicine, CowFoodStock, MedicineUsage, MedicalStore
+from .serializers import MedicineSerializer, CowFoodStockSerializer, MedicineUsageSerializer, MedicalStoreSerializer
 
 class MedicineViewSet(viewsets.ModelViewSet):
     queryset = Medicine.objects.all()
@@ -15,4 +15,9 @@ class CowFoodStockViewSet(viewsets.ModelViewSet):
 class MedicineUsageViewSet(viewsets.ModelViewSet):
     queryset = MedicineUsage.objects.all()
     serializer_class = MedicineUsageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class MedicalStoreViewSet(viewsets.ModelViewSet):
+    queryset = MedicalStore.objects.all()
+    serializer_class = MedicalStoreSerializer
     permission_classes = [permissions.IsAuthenticated]
