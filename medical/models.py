@@ -18,6 +18,7 @@ class Treatment(models.Model):
     STATUS_CHOICES = [
         ('Ongoing', 'Ongoing'),
         ('Recovered', 'Recovered'),
+        ('Death', 'Death'),
     ]
 
     cow = models.ForeignKey(Cow, on_delete=models.CASCADE, related_name='treatments')

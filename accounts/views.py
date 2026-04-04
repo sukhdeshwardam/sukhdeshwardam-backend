@@ -379,7 +379,8 @@ def doctor_dashboard_view(request):
     if not role_check(request.user, CustomUser.Role.DOCTOR):
         return Response({'error': 'Access denied. Doctor role required.'}, status=status.HTTP_403_FORBIDDEN)
 
-    total_deaths = Treatment.objects.filter(status='Death').count()
+    # Count unique cows whose latest status is 'Death'
+    total_deaths = Treatment.objects.order_by('cow', '-checkup_date').distinct('cow').filter(status='Death').count()
     total_cows = Cow.objects.count()
     total_medicines_stock = Medicine.objects.aggregate(total=Sum('stock'))['total'] or 0
 
