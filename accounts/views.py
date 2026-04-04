@@ -19,10 +19,6 @@ from accounts.serializers import (
 )
 from accounts.utils import create_and_send_otp, send_password_reset_email
 from django.db import transaction
-from django.db.models import Sum
-from medical.models import Treatment
-from cattle.models import Cow
-from inventory.models import Medicine
 
 
 # ─────────────────────────────────────────────
@@ -355,14 +351,45 @@ def admin_dashboard_view(request):
     if not role_check(request.user, CustomUser.Role.ADMIN):
         return Response({'error': 'Access denied. Admin role required.'}, status=status.HTTP_403_FORBIDDEN)
 
+    from cattle.models import Cow, CowBaseStats
+    from medical.models import Treatment
+    from management.models import Donation
+    from inventory.models import Medicine
+    from django.db.models import Sum
+
+    # Cow counts
+    dynamic_cows = Cow.objects.count()
+    base_stats = CowBaseStats.load()
+    total_cows = dynamic_cows + (base_stats.total if base_stats else 0)
+
+    # Total earnings from money donations
+    total_earnings = Donation.objects.filter(donation_type='Money').aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+
+    # Treatment outcomes — unique cows by latest status
+    total_recovers = Treatment.objects.filter(status='Recovered').values('cow').distinct().count()
+    total_deaths   = Treatment.objects.filter(status='Death').values('cow').distinct().count()
+
+    # Medicine stock
+    total_medicine_stock = Medicine.objects.aggregate(total=Sum('stock'))['total'] or 0
+
     users = CustomUser.objects.all().order_by('-date_joined')[:10]
     return Response(
         {
-            'message':       'Admin Dashboard',
-            'total_users':   CustomUser.objects.count(),
-            'total_doctors': CustomUser.objects.filter(role=CustomUser.Role.DOCTOR).count(),
-            'total_members': CustomUser.objects.filter(role=CustomUser.Role.MEMBER).count(),
-            'recent_users':  UserProfileSerializer(users, many=True).data,
+            'message':      'Admin Dashboard',
+            'user':         UserProfileSerializer(request.user).data,
+            'stats': {
+                'total_users':          CustomUser.objects.count(),
+                'total_doctors':        CustomUser.objects.filter(role=CustomUser.Role.DOCTOR).count(),
+                'total_members':        CustomUser.objects.filter(role=CustomUser.Role.MEMBER).count(),
+                'total_cows':           total_cows,
+                'total_earnings':       float(total_earnings),
+                'total_recovered':      total_recovers,
+                'total_deaths':         total_deaths,
+                'total_medicine_stock': float(total_medicine_stock),
+            },
+            'recent_users': UserProfileSerializer(users, many=True).data,
         },
         status=status.HTTP_200_OK,
     )
@@ -379,9 +406,13 @@ def doctor_dashboard_view(request):
     if not role_check(request.user, CustomUser.Role.DOCTOR):
         return Response({'error': 'Access denied. Doctor role required.'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Count unique cows whose latest status is 'Death'
-    total_deaths = Treatment.objects.order_by('cow', '-checkup_date').distinct('cow').filter(status='Death').count()
+    from cattle.models import Cow
+    from medical.models import Treatment
+    from inventory.models import Medicine
+    from django.db.models import Sum
+
     total_cows = Cow.objects.count()
+    total_deaths = Treatment.objects.filter(status='Death').values('cow').distinct().count()
     total_medicines_stock = Medicine.objects.aggregate(total=Sum('stock'))['total'] or 0
 
     return Response(
@@ -389,10 +420,10 @@ def doctor_dashboard_view(request):
             'message': 'Doctor Dashboard',
             'user':    UserProfileSerializer(request.user).data,
             'stats': {
-                'total_deaths': total_deaths,
-                'total_cows': total_cows,
-                'total_medicines_stock': total_medicines_stock,
-            }
+                'total_cows':             total_cows,
+                'total_deaths':           total_deaths,
+                'total_medicines_stock':  float(total_medicines_stock),
+            },
         },
         status=status.HTTP_200_OK,
     )
@@ -409,10 +440,27 @@ def member_dashboard_view(request):
     if not role_check(request.user, CustomUser.Role.MEMBER):
         return Response({'error': 'Access denied. Member role required.'}, status=status.HTTP_403_FORBIDDEN)
 
+    from cattle.models import Cow, CowBaseStats
+    from medical.models import Treatment
+    from inventory.models import Medicine
+    from django.db.models import Sum
+
+    dynamic_cows = Cow.objects.count()
+    base_stats   = CowBaseStats.load()
+    total_cows   = dynamic_cows + (base_stats.total if base_stats else 0)
+
+    total_deaths         = Treatment.objects.filter(status='Death').values('cow').distinct().count()
+    total_medicine_stock = Medicine.objects.aggregate(total=Sum('stock'))['total'] or 0
+
     return Response(
         {
             'message': 'Member Dashboard',
             'user':    UserProfileSerializer(request.user).data,
+            'stats': {
+                'total_cows':           total_cows,
+                'total_deaths':         total_deaths,
+                'total_medicine_stock': float(total_medicine_stock),
+            },
         },
         status=status.HTTP_200_OK,
     )
