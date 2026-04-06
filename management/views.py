@@ -82,3 +82,108 @@ class VisitViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 from rest_framework import response, status
+from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+import cloudinary.uploader
+import requests
+import json
+import re
+
+class SendCampaignView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        target = data.get('target')  # 'donors', 'visitors', 'both', 'specific'
+        message_text = data.get('message', '')
+        api_key = data.get('api_key')
+        specific_ids = data.get('specific_ids', [])
+        
+        if isinstance(specific_ids, str):
+            try:
+                specific_ids = json.loads(specific_ids)
+            except:
+                specific_ids = []
+
+        if not api_key:
+            return response.Response({'error': 'Fast2SMS API Key is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        image_file = request.FILES.get('image')
+        if image_file:
+            try:
+                upload_data = cloudinary.uploader.upload(image_file)
+                image_url = upload_data.get('secure_url')
+                if image_url:
+                    message_text = f"{message_text}\n\nImage Attachment:\n{image_url}".strip()
+            except Exception as e:
+                return response.Response({'error': f'Failed to upload image: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not message_text.strip():
+            return response.Response({'error': 'Message content (text or image) is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phones = set()
+
+        if target in ['donors', 'both']:
+            donors = Donor.objects.exclude(phone__isnull=True).exclude(phone__exact='')
+            for d in donors:
+                phones.add(d.phone)
+        
+        if target in ['visitors', 'both']:
+            visitors = Visitor.objects.exclude(phone__isnull=True).exclude(phone__exact='')
+            for v in visitors:
+                phones.add(v.phone)
+        
+        if target == 'specific' and specific_ids:
+            for item_id in specific_ids:
+                if str(item_id).startswith('donor_'):
+                    d_id = item_id.split('_')[1]
+                    try:
+                        d = Donor.objects.get(id=d_id)
+                        if d.phone:
+                            phones.add(d.phone)
+                    except Donor.DoesNotExist:
+                        pass
+                elif str(item_id).startswith('visitor_'):
+                    v_id = item_id.split('_')[1]
+                    try:
+                        v = Visitor.objects.get(id=v_id)
+                        if v.phone:
+                            phones.add(v.phone)
+                    except Visitor.DoesNotExist:
+                        pass
+        
+        clean_phones = []
+        for p in phones:
+            cleaned = re.sub(r'\D', '', p)
+            if len(cleaned) > 10 and cleaned.endswith(cleaned[-10:]):
+                cleaned = cleaned[-10:]
+            if len(cleaned) == 10:
+                clean_phones.append(cleaned)
+        
+        if not clean_phones:
+            return response.Response({'error': 'No valid 10-digit phone numbers found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        url = "https://www.fast2sms.com/dev/bulkV2"
+        # We use explicit route v3 for WhatsApp or regular routing
+        payload = {
+            "message": message_text,
+            "language": "english",
+            "route": "v3",
+            "numbers": ",".join(clean_phones)
+        }
+        
+        headers = {
+            'authorization': api_key,
+            'Content-Type': "application/x-www-form-urlencoded",
+        }
+        
+        try:
+            r = requests.post(url, data=payload, headers=headers)
+            r_data = r.json()
+            if r_data.get('return'):
+                return response.Response({'success': True, 'message': f'Message queued for {len(clean_phones)} numbers.', 'fast2sms_response': r_data}, status=status.HTTP_200_OK)
+            else:
+                return response.Response({'error': 'Fast2SMS Error', 'details': r_data}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return response.Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
