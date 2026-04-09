@@ -18,6 +18,8 @@ class Medicine(models.Model):
         ('Bottle', 'Bottle'),
         ('Tablets', 'Tablets'),
         ('Injection', 'Injection'),
+        ('Powder', 'Powder'),
+        ('Ointment', 'Ointment'),
     ]
 
     medicine_name = models.CharField(max_length=150, default="Unknown Medicine")
