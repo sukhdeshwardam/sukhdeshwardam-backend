@@ -84,10 +84,11 @@ class VisitViewSet(viewsets.ModelViewSet):
 from rest_framework import response, status
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-import cloudinary.uploader
 import requests
 import json
 import re
+import os
+import cloudinary.uploader
 
 class SendCampaignView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -97,7 +98,7 @@ class SendCampaignView(APIView):
         data = request.data
         target = data.get('target')  # 'donors', 'visitors', 'both', 'specific'
         message_text = data.get('message', '')
-        api_key = data.get('api_key')
+        api_key = data.get('api_key') or os.environ.get('fast2sms_api_key')
         specific_ids = data.get('specific_ids', [])
         
         if isinstance(specific_ids, str):
@@ -108,7 +109,7 @@ class SendCampaignView(APIView):
 
         if not api_key:
             return response.Response({'error': 'Fast2SMS API Key is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         image_file = request.FILES.get('image')
         if image_file:
             try:
@@ -120,7 +121,7 @@ class SendCampaignView(APIView):
                 return response.Response({'error': f'Failed to upload image: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not message_text.strip():
-            return response.Response({'error': 'Message content (text or image) is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return response.Response({'error': 'Message content is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         phones = set()
 
@@ -153,13 +154,15 @@ class SendCampaignView(APIView):
                     except Visitor.DoesNotExist:
                         pass
         
-        clean_phones = []
+        clean_phones = set()
         for p in phones:
             cleaned = re.sub(r'\D', '', p)
             if len(cleaned) > 10 and cleaned.endswith(cleaned[-10:]):
                 cleaned = cleaned[-10:]
             if len(cleaned) == 10:
-                clean_phones.append(cleaned)
+                clean_phones.add(cleaned)
+        
+        clean_phones = list(clean_phones)
         
         if not clean_phones:
             return response.Response({'error': 'No valid 10-digit phone numbers found.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -187,3 +190,45 @@ class SendCampaignView(APIView):
                 return response.Response({'error': 'Fast2SMS Error', 'details': r_data}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return response.Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class BirthdayListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date
+        today = date.today()
+        
+        # Donors with birthday today
+        donors = Donor.objects.filter(dob__month=today.month, dob__day=today.day)
+        donor_data = [
+            {'id': f'donor_{d.id}', 'name': d.name, 'phone': d.phone, 'type': 'Donor'}
+            for d in donors
+        ]
+        
+        # Visitors with birthday today
+        visitors = Visitor.objects.filter(dob__month=today.month, dob__day=today.day)
+        visitor_data = [
+            {'id': f'visitor_{v.id}', 'name': v.name, 'phone': v.phone, 'type': 'Visitor'}
+            for v in visitors
+        ]
+        
+        # Deduplicate combined list by phone number
+        import re
+        combined = donor_data + visitor_data
+        deduplicated = {}
+        for item in combined:
+            phone = item.get('phone')
+            if not phone: continue
+            
+            cleaned_phone = re.sub(r'\D', '', phone)
+            if len(cleaned_phone) > 10 and cleaned_phone.endswith(cleaned_phone[-10:]):
+                cleaned_phone = cleaned_phone[-10:]
+                
+            if len(cleaned_phone) != 10:
+                cleaned_phone = phone # fallback if it's completely weird
+
+            # If phone exists, prioritize Donor
+            if cleaned_phone not in deduplicated or item['type'] == 'Donor':
+                deduplicated[cleaned_phone] = item
+                
+        return response.Response(list(deduplicated.values()), status=status.HTTP_200_OK)
