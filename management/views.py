@@ -168,11 +168,11 @@ class SendCampaignView(APIView):
             return response.Response({'error': 'No valid 10-digit phone numbers found.'}, status=status.HTTP_400_BAD_REQUEST)
 
         url = "https://www.fast2sms.com/dev/bulkV2"
-        # We use explicit route v3 for WhatsApp or regular routing
+        # We use explicit route q for latest API routing
         payload = {
             "message": message_text,
             "language": "english",
-            "route": "v3",
+            "route": "q",
             "numbers": ",".join(clean_phones)
         }
         
