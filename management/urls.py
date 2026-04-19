@@ -12,3 +12,4 @@ urlpatterns = [
     path('send-campaign/', SendCampaignView.as_view(), name='send-campaign'),
     path('birthdays/', BirthdayListView.as_view(), name='birthdays'),
 ]
+

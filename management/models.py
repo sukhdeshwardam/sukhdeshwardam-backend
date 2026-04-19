@@ -53,3 +53,15 @@ class Visit(models.Model):
 
     class Meta:
         ordering = ['-visit_date']
+
+class BirthdayWishLog(models.Model):
+    """Tracks birthday wishes already sent today to prevent double-charging."""
+    phone = models.CharField(max_length=20)
+    sent_on = models.DateField()  # The date the wish was sent (today's date)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('phone', 'sent_on')  # One wish per phone per day
+
+    def __str__(self):
+        return f"{self.phone} - {self.sent_on}"

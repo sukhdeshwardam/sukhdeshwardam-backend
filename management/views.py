@@ -111,14 +111,22 @@ class SendCampaignView(APIView):
             return response.Response({'error': 'Fast2SMS API Key is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         image_file = request.FILES.get('image')
+        # Also allow passing a pre-hosted image URL directly (e.g. for birthday wishes)
+        image_url_direct = data.get('image_url', '').strip()
+        image_url = None
+
         if image_file:
             try:
                 upload_data = cloudinary.uploader.upload(image_file)
                 image_url = upload_data.get('secure_url')
-                if image_url:
-                    message_text = f"{message_text}\n\nImage Attachment:\n{image_url}".strip()
             except Exception as e:
                 return response.Response({'error': f'Failed to upload image: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        elif image_url_direct:
+            # Use the pre-hosted URL directly (no upload needed)
+            image_url = image_url_direct
+        else:
+            # Header image is REQUIRED by the approved gau_dham template
+            return response.Response({'error': 'A header image is required by the approved WhatsApp template.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not message_text.strip():
             return response.Response({'error': 'Message content is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -167,22 +175,37 @@ class SendCampaignView(APIView):
         if not clean_phones:
             return response.Response({'error': 'No valid 10-digit phone numbers found.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        url = "https://www.fast2sms.com/dev/bulkV2"
-        # We use explicit route q for latest API routing
+        # Note: clean_phones is already a set() so duplicate numbers selected in
+        # the same request are automatically deduplicated — one charge per unique number.
+
+        # The correct Fast2SMS WhatsApp endpoint
+        url = "https://www.fast2sms.com/dev/whatsapp"
+        
+        # Fast2SMS requires phone_number_id for WhatsApp
+        phone_number_id = os.environ.get('FAST2SMS_PHONE_ID', '') 
+
+        if not phone_number_id:
+            return response.Response({'error': 'Fast2SMS Phone Number ID (.env FAST2SMS_PHONE_ID) is required for WhatsApp route.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Build payload based on Fast2SMS WhatsApp Simple API
+        # gau_dham template has ONE variable: {{1}} = message body
+        # Header image is sent via media_url
         payload = {
-            "message": message_text,
-            "language": "english",
-            "route": "q",
-            "numbers": ",".join(clean_phones)
+            "message_id": "17526",  # Message ID from Fast2SMS dashboard
+            "phone_number_id": phone_number_id,
+            "variables_values": message_text,   # {{1}} only
+            "numbers": ",".join(clean_phones),
+            "media_url": image_url,  # header image (required)
         }
         
         headers = {
-            'authorization': api_key,
-            'Content-Type': "application/x-www-form-urlencoded",
+            'authorization': api_key,  # API key must be in header
+            'Content-Type': "application/json",
+            'Accept': "application/json"
         }
         
         try:
-            r = requests.post(url, data=payload, headers=headers)
+            r = requests.post(url, json=payload, headers=headers)
             r_data = r.json()
             if r_data.get('return'):
                 return response.Response({'success': True, 'message': f'Message queued for {len(clean_phones)} numbers.', 'fast2sms_response': r_data}, status=status.HTTP_200_OK)
@@ -196,6 +219,7 @@ class BirthdayListView(APIView):
 
     def get(self, request):
         from datetime import date
+        import re
         today = date.today()
         
         # Donors with birthday today
@@ -213,7 +237,6 @@ class BirthdayListView(APIView):
         ]
         
         # Deduplicate combined list by phone number
-        import re
         combined = donor_data + visitor_data
         deduplicated = {}
         for item in combined:

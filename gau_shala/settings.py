@@ -85,12 +85,6 @@ DATABASES = {
     )
 }
 
-# Force SSL for NeonDB
-DATABASES['default']['OPTIONS'] = {
-    'sslmode': 'require',
-    'channel_binding': 'require',
-}
-
 
 # ── Custom User Model ─────────────────────────────────────────────────────────
 AUTH_USER_MODEL = 'accounts.CustomUser'
